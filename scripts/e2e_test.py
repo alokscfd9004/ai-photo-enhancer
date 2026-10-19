@@ -48,6 +48,12 @@ print("enh  file:", job.enhanced_image.name)
 print("time:", job.processing_seconds, "s")
 
 assert job.status == EnhancementJob.Status.COMPLETED, job.error_message
-assert job.enhanced_width == 320 and job.enhanced_height == 240, job.enhanced_width
+from enhancer.services import resolve_target
+
+expected = resolve_target((job.original_width, job.original_height), job.target)
+assert (job.enhanced_width, job.enhanced_height) == expected, (
+    (job.enhanced_width, job.enhanced_height),
+    expected,
+)
 assert (settings.MEDIA_ROOT / job.enhanced_image.name).is_file()
-print("E2E OK")
+print("E2E OK", f"({job.target} -> {expected[0]}x{expected[1]})")
