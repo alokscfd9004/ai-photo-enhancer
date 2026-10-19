@@ -183,15 +183,26 @@ if not DEBUG:
     SECURE_REFERRER_POLICY = "same-origin"
     X_FRAME_OPTIONS = "DENY"
 
+# ---------------------------------------------------------------------------
+# Vercel (serverless) deployment overrides
+# ---------------------------------------------------------------------------
+if os.environ.get("VERCEL"):
+    DEBUG = False
+    ALLOWED_HOSTS = [".vercel.app", ".now.sh", "localhost", "127.0.0.1"]
+    SECURE_SSL_REDIRECT = False
+    # The function sandbox is ephemeral/read-only outside /tmp.
+    DATABASES["default"]["NAME"] = "/tmp/db.sqlite3"
+    MEDIA_ROOT = Path("/tmp/media")
+    MEDIA_URL = "/media/"
+    # Serve media through the app (there is no persistent volume).
+    SERVE_MEDIA = True
+    WHITENOISE_MANIFEST_STRICT = False
+else:
+    SERVE_MEDIA = env.bool("SERVE_MEDIA", default=False)
 
-if not DEBUG:
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_REFERRER_POLICY = "same-origin"
-    X_FRAME_OPTIONS = "DENY"
+# Recompute now that DEBUG may have been flipped above.
+STORAGES["staticfiles"]["BACKEND"] = (
+    "django.contrib.staticfiles.storage.StaticFilesStorage"
+    if DEBUG
+    else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+)

@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, re_path
 
 from . import views
 
@@ -18,4 +18,6 @@ urlpatterns = [
     path("api/jobs/", views.api_jobs, name="api_jobs"),
     path("api/jobs/<uuid:job_id>/", views.api_status, name="api_status"),
     path("health/", views.health, name="health"),
+    # Media (only served when settings.SERVE_MEDIA is enabled, e.g. Vercel)
+    re_path(r"^media/(?P<path>.*)$", views.serve_media, name="serve_media"),
 ]
