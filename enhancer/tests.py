@@ -1,3 +1,6 @@
+import inspect
+
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase
 
@@ -231,3 +234,46 @@ class ViewTests(TestCase):
             },
         )
         self.assertEqual(resp.status_code, 400)
+
+
+class StaticStorageTests(SimpleTestCase):
+    """Regression tests for the production (manifest) static files storage."""
+
+    def _storage(self):
+        from ai_photo_enhancer.storage import (
+            ForgivingCompressedManifestStaticFilesStorage,
+        )
+
+        return ForgivingCompressedManifestStaticFilesStorage(
+            location=settings.STATIC_ROOT,
+            base_url=settings.STATIC_URL,
+        )
+
+    def test_manifest_is_not_strict(self):
+        from ai_photo_enhancer.storage import (
+            ForgivingCompressedManifestStaticFilesStorage,
+        )
+
+        self.assertFalse(ForgivingCompressedManifestStaticFilesStorage.manifest_strict)
+
+    def test_stored_name_accepts_any_signature(self):
+        # Regression: a hardcoded ``stored_name(self, name, hashed_name=None)``
+        # raised TypeError inside WhiteNoise startup and 500'd every request.
+        from ai_photo_enhancer.storage import (
+            ForgivingCompressedManifestStaticFilesStorage,
+        )
+
+        params = inspect.signature(
+            ForgivingCompressedManifestStaticFilesStorage.stored_name
+        ).parameters
+        self.assertIn("args", params)
+        self.assertIn("kwargs", params)
+
+    def test_existing_asset_resolves_to_hashed_name(self):
+        url = self._storage().url("enhancer/css/style.css")
+        self.assertTrue(url.startswith(settings.STATIC_URL))
+        self.assertNotEqual(url, settings.STATIC_URL + "enhancer/css/style.css")
+
+    def test_missing_asset_does_not_raise(self):
+        url = self._storage().url("enhancer/does-not-exist.css")
+        self.assertEqual(url, settings.STATIC_URL + "enhancer/does-not-exist.css")
