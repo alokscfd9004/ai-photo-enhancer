@@ -204,5 +204,5 @@ else:
 STORAGES["staticfiles"]["BACKEND"] = (
     "django.contrib.staticfiles.storage.StaticFilesStorage"
     if DEBUG
-    else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    else "ai_photo_enhancer.storage.ForgivingCompressedManifestStaticFilesStorage"
 )
