@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}About — AI Photo Enhancer{% endblock %}
+
+{% block content %}
+<section class="section prose">
+  <p class="eyebrow">About</p>
+  <h1>AI Photo Enhancer</h1>
+  <p class="lede">
+    A self-hosted photo super-resolution studio powered by the open-source
+    <strong>Real-ESRGAN</strong> engine (NCNN Vulkan build). Upload a low-resolution
+    image and get a clean, sharp HD or 4K reconstruction in seconds.
+  </p>
+
+  <h2>How it works</h2>
+  <ol>
+    <li>Your photo is validated (type, size, pixel budget) and stored locally.</li>
+    <li>A background worker invokes <code>realesrgan-ncnn-vulkan</code> with the model you picked.</li>
+    <li>The upscaled PNG is written to <code>media/enhanced/</code> and shown with a before/after comparator.</li>
+  </ol>
+
+  <h2>Models</h2>
+  <ul>
+    <li><strong>RealESRGAN x4plus</strong> — best all-round quality for real photos.</li>
+    <li><strong>RealESRGAN x4plus anime</strong> — tuned for illustrations and line art.</li>
+    <li><strong>RealESR AnimeVideo v3</strong> — fast, supports 2×/3×/4×.</li>
+  </ul>
+  <p>
+    The <strong>noise cleanup</strong> slider applies a gentle median pre-filter to
+    reduce sensor noise and JPEG artifacts before super-resolution.
+  </p>
+
+  <h2>Engine status</h2>
+  <div class="stats-grid">
+    <div class="stat">
+      <span class="stat-label">Available</span>
+      <span class="stat-value">{{ engine.available|yesno:"Yes,No" }}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Binary</span>
+      <span class="stat-value stat-small">{{ engine.binary }}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Models found</span>
+      <span class="stat-value stat-small">{{ engine.models_present|join:", "|default:"none" }}</span>
+    </div>
+  </div>
+  {% if not engine.available %}
+    <div class="notice notice-warn">
+      Missing engine? From the project root run
+      <code>python scripts/setup_realesrgan.py</code>
+    </div>
+  {% endif %}
+
+  <h2>Privacy</h2>
+  <p>
+    Everything runs on this server. Images are written only to the local
+    <code>media/</code> directory and can be deleted from the History page at any time.
+  </p>
+</section>
+{% endblock %}

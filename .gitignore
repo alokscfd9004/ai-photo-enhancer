@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.so
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+media/
+*.log
+local_settings.py
+
+# Environment
+.env
+
+# Engine binaries / models (downloaded by scripts/setup_realesrgan.py)
+bin/realesrgan-ncnn-vulkan*
+bin/*.dylib
+bin/*.so
+bin/*.dll
+bin/models/
+bin/*.exe
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Deploy
+.vercel/
+node_modules/
+.vercelignore
+
+# IDE
+.idea/
+.vscode/
+*.swp

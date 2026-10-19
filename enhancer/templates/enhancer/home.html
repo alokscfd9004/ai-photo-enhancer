@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% load enhancer_tags %}
+
+{% block title %}AI Photo Enhancer — Upscale to HD & 4K{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Real-ESRGAN · NCNN Vulkan</p>
+    <h1>Turn blurry photos into <span class="grad-text">stunning HD & 4K</span> images.</h1>
+      <p class="lede">
+      Drop in a low-resolution shot and our AI super-resolution engine rebuilds
+      edges, faces and textures — then fits it to Low, Medium, HD, 2K or 4K.
+      Scale up or down, right on your machine.
+    </p>
+    <ul class="hero-points">
+      <li>Low · Medium · HD · 2K · 4K — fits up and down</li>
+      <li>General photo, anime &amp; restoration models</li>
+      <li>Private — images never leave this server</li>
+    </ul>
+  </div>
+
+  <div class="hero-card">
+    {% if not engine_available %}
+      <div class="notice notice-warn">
+        <strong>Engine not installed.</strong>
+        Run <code>python scripts/setup_realesrgan.py</code> on the server to download Real-ESRGAN.
+      </div>
+    {% endif %}
+
+    <div class="denoise-value" hidden id="denoise-default" data-value="0"></div>
+    <div class="sharpness-value" hidden id="sharpness-default" data-value="0.45"></div>
+    <div class="texture-value" hidden id="texture-default" data-value="0.35"></div>
+
+    <form id="upload-form" class="upload-form" method="post" enctype="multipart/form-data"
+          action="{% url 'enhancer:home' %}">
+      {% csrf_token %}
+
+      <div id="dropzone" class="dropzone" tabindex="0" role="button"
+           aria-label="Upload an image">
+        <input id="file-input" type="file" name="original_image"
+               accept=".jpg,.jpeg,.png,.webp,image/*" required hidden>
+        <div class="dropzone-inner" id="dropzone-empty">
+          <div class="drop-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M12 16V4m0 0l-4 4m4-4l4 4"/>
+              <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+            </svg>
+          </div>
+          <p class="drop-title">Drag &amp; drop your photo</p>
+          <p class="drop-sub">or <span class="linkish">browse files</span> · JPG, PNG, WebP · max {{ max_upload_mb }} MB</p>
+        </div>
+        <div class="dropzone-preview hidden" id="dropzone-preview">
+          <img id="preview-img" alt="Preview of the selected photo">
+          <div class="preview-meta">
+            <span id="preview-name"></span>
+            <button type="button" class="btn-ghost" id="clear-file">Replace</button>
+          </div>
+        </div>
+      </div>
+
+      {% if form.original_image.errors %}
+        <p class="field-error">{{ form.original_image.errors|striptags }}</p>
+      {% endif %}
+
+      <div class="grid-2">
+        <label class="field-wrap">
+          <span class="field-label">Title <small>(optional)</small></span>
+          {{ form.title }}
+          {{ form.title.errors }}
+        </label>
+
+        <label class="field-wrap">
+          <span class="field-label">AI model</span>
+          {{ form.model_name }}
+          {{ form.model_name.errors }}
+        </label>
+      </div>
+
+      <div class="grid-2">
+        <label class="field-wrap">
+          <span class="field-label">Target size</span>
+          {{ form.target }}
+          {{ form.target.errors }}
+          <span class="field-help" id="size-readout">Fits inside the box — aspect kept. Works up and down.</span>
+        </label>
+
+        <label class="field-wrap">
+          <span class="field-label">Output format</span>
+          {{ form.output_format }}
+          {{ form.output_format.errors }}
+          <span class="field-help">JPEG keeps files small · PNG is lossless</span>
+        </label>
+      </div>
+
+      <div class="grid-3">
+        <label class="field-wrap">
+          <span class="field-label">Sharpness <small id="sharpness-value">0.45</small></span>
+          {{ form.sharpness }}
+          {{ form.sharpness.errors }}
+          <span class="field-help">Detail &amp; clarity boost after upscaling</span>
+        </label>
+
+        <label class="field-wrap">
+          <span class="field-label">Texture <small id="texture-value">0.35</small></span>
+          {{ form.texture }}
+          {{ form.texture.errors }}
+          <span class="field-help">Re-grafts source grain &amp; material feel</span>
+        </label>
+
+        <label class="field-wrap">
+          <span class="field-label">Color cleanup <small id="denoise-value">0.00</small></span>
+          {{ form.denoise_strength }}
+          {{ form.denoise_strength.errors }}
+          <span class="field-help">Softens JPEG colour noise only — detail is kept</span>
+        </label>
+      </div>
+
+      <button type="submit" class="btn-primary btn-block" id="submit-btn" {% if not engine_available %}disabled{% endif %}>
+        <span class="btn-label">Enhance photo</span>
+        <span class="btn-busy hidden">Working…</span>
+      </button>
+      <p class="form-foot">Processed locally with Real-ESRGAN · nothing is uploaded to third parties</p>
+    </form>
+  </div>
+</section>
+
+{% if recent_jobs %}
+<section class="section">
+  <div class="section-head">
+    <h2>Recent enhancements</h2>
+    <a class="linkish" href="{% url 'enhancer:history' %}">View all →</a>
+  </div>
+  <div class="thumb-grid">
+    {% for job in recent_jobs|slice:":8" %}
+      <a class="thumb-card" href="{% url 'enhancer:result' job.pk %}">
+        <div class="thumb-img">
+          {% if job.enhanced_image %}
+            <img src="{{ job.enhanced_image.url }}" alt="{{ job.filename }}" loading="lazy">
+          {% elif job.original_image %}
+            <img src="{{ job.original_image.url }}" alt="{{ job.filename }}" loading="lazy">
+          {% endif %}
+          <span class="badge badge-{{ job.status }}">{{ job.get_status_display }}</span>
+        </div>
+        <div class="thumb-meta">
+          <span class="thumb-title">{{ job.title|default:job.filename|truncatechars:28 }}</span>
+          <span class="thumb-sub">{{ job.target_label }} · {{ job.created_at|timesince }} ago</span>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="section feature-row">
+  <article class="feature">
+    <h3>4× super-resolution</h3>
+    <p>Real-ESRGAN restores high-frequency detail that bilinear upscalers throw away — sharp hair, crisp text, clean edges.</p>
+  </article>
+  <article class="feature">
+    <h3>Purpose-built models</h3>
+    <p>General photos, anime/illustrations and a fast model for video frames and quick drafts. Pick the one that fits your image.</p>
+  </article>
+  <article class="feature">
+    <h3>Before / after slider</h3>
+    <p>Every result ships with an interactive comparator so you can verify the improvement pixel by pixel.</p>
+  </article>
+</section>
+{% endblock %}

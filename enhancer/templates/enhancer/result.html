@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% load enhancer_tags %}
+
+{% block title %}{{ job.title|default:"Enhancement" }} — AI Photo Enhancer{% endblock %}
+
+{% block content %}
+<section class="result-wrap"
+         id="result-root"
+         data-job-id="{{ job.pk }}"
+         data-status="{{ job.status }}">
+
+  <div class="result-head">
+    <div>
+      <p class="eyebrow">Enhancement job</p>
+      <h1 class="result-title">{{ job.title|default:job.filename }}</h1>
+      <p class="result-sub">
+        {{ job.get_model_name_display }} ·
+        {{ job.target_label }} ·
+        {{ job.scale_label }} ·
+        {{ job.get_output_format_display }} ·
+        started {{ job.created_at|timesince }} ago
+      </p>
+    </div>
+    <div class="result-actions">
+      {% if job.enhanced_image %}
+        <a class="btn-primary" href="{% url 'enhancer:download' job.pk %}">Download HD</a>
+        <a class="btn-ghost" href="{{ job.enhanced_image.url }}" target="_blank" rel="noopener">Open full size ↗</a>
+      {% endif %}
+      <a class="btn-ghost" href="{% url 'enhancer:download_original' job.pk %}">Original</a>
+      <a class="btn-ghost" href="{% url 'enhancer:home' %}">New photo</a>
+    </div>
+  </div>
+
+  <div id="status-panel" class="status-panel {% if job.is_finished %}hidden{% endif %}">
+    <div class="spinner" aria-hidden="true"></div>
+    <div>
+      <h2 id="status-title">Preparing your enhancement…</h2>
+      <p id="status-text" class="muted">The AI is reconstructing fine detail. Large images can take a minute.</p>
+      <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+    </div>
+  </div>
+
+  <div id="error-panel" class="notice notice-error {% if job.status != 'failed' %}hidden{% endif %}">
+    <h2>Enhancement failed</h2>
+    <p id="error-text">{{ job.error_message }}</p>
+  </div>
+
+  {% if job.status == 'failed' and job.error_message %}
+    <details class="notice">
+      <summary>Engine details</summary>
+      <pre class="error-pre">{{ job.error_message }}</pre>
+    </details>
+  {% endif %}
+
+  <div id="compare-panel" class="compare-panel {% if not job.enhanced_image %}hidden{% endif %}">
+    <div class="compare" id="compare"
+         data-original-url="{{ job.original_image.url }}"
+         data-enhanced-url="{% if job.enhanced_image %}{{ job.enhanced_image.url }}{% endif %}"
+         data-scale-label="{{ job.scale_label }}">
+      <img class="compare-img compare-after"
+           id="img-after"
+           src="{% if job.enhanced_image %}{{ job.enhanced_image.url }}{% endif %}"
+           alt="Enhanced result">
+      <div class="compare-before-wrap" id="before-wrap">
+        <img class="compare-img compare-before"
+             id="img-before"
+             src="{{ job.original_image.url }}"
+             alt="Original photo">
+      </div>
+      <div class="compare-handle" id="compare-handle" role="slider"
+           aria-label="Comparison slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" tabindex="0">
+        <span class="compare-line"></span>
+        <span class="compare-knob">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 6l-4 6 4 6M16 6l4 6-4 6"/>
+          </svg>
+        </span>
+      </div>
+      <span class="compare-label compare-label-l">Enhanced</span>
+      <span class="compare-label compare-label-r" id="compare-label-r">Original</span>
+      <div class="loupe hidden" id="loupe" aria-hidden="true"></div>
+    </div>
+    <div class="compare-tools">
+      <p class="compare-hint">Drag the handle · ← → keys · hover with the loupe on to inspect pixels at 100%</p>
+      <div class="compare-modes" role="group" aria-label="Comparison mode">
+        <button type="button" class="btn-ghost btn-sm compare-mode is-active"
+                data-compare-mode="source" aria-pressed="true">Original</button>
+        <button type="button" class="btn-ghost btn-sm compare-mode"
+                data-compare-mode="naive" aria-pressed="false">Naive {{ job.scale_label }}</button>
+      </div>
+      <button type="button" class="btn-ghost btn-sm" id="loupe-toggle" aria-pressed="false">Inspect at 100%</button>
+      {% if job.enhanced_image %}
+        <a class="btn-ghost btn-sm" href="{{ job.enhanced_image.url }}" target="_blank" rel="noopener">Full size ↗</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat">
+      <span class="stat-label">Original</span>
+      <span class="stat-value" id="stat-orig-dims">{{ job|pretty_dims }}</span>
+      <span class="stat-sub" id="stat-orig-size">{{ job.original_size|pretty_size }}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Enhanced</span>
+      <span class="stat-value" id="stat-enh-dims">{{ job|enhanced_dims }}</span>
+      <span class="stat-sub" id="stat-enh-size">{{ job.enhanced_size|pretty_size }} · {{ job.get_output_format_display }}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Target</span>
+      <span class="stat-value">{{ job.target_label }}</span>
+      <span class="stat-sub">{{ job.scale_label }} · sharpness {{ job.sharpness|floatformat:2 }} · texture {{ job.texture|floatformat:2 }} · cleanup {{ job.denoise_strength|floatformat:2 }}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Processing</span>
+      <span class="stat-value" id="stat-time">
+        {% if job.processing_seconds %}{{ job.processing_seconds }}s{% else %}—{% endif %}
+      </span>
+      <span class="stat-sub">Real-ESRGAN NCNN Vulkan</span>
+    </div>
+  </div>
+</section>
+{% endblock %}

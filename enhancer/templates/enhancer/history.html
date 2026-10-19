@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load enhancer_tags %}
+
+{% block title %}History — AI Photo Enhancer{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Library</p>
+      <h1>Enhancement history</h1>
+      <p class="muted">{{ stats.total }} jobs · {{ stats.completed }} completed · {{ stats.failed }} failed · {{ stats.processing }} running</p>
+    </div>
+    <a class="btn-primary" href="{% url 'enhancer:home' %}">New enhancement</a>
+  </div>
+
+  <form class="filters" method="get" action="{% url 'enhancer:history' %}">
+    <input class="field" type="search" name="q" value="{{ q }}" placeholder="Search by title or filename…">
+    <select class="field" name="status">
+      <option value="">All statuses</option>
+      <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
+      <option value="processing" {% if status == 'processing' %}selected{% endif %}>Processing</option>
+      <option value="completed" {% if status == 'completed' %}selected{% endif %}>Completed</option>
+      <option value="failed" {% if status == 'failed' %}selected{% endif %}>Failed</option>
+    </select>
+    <button class="btn-ghost" type="submit">Filter</button>
+  </form>
+
+  {% if jobs %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Preview</th>
+          <th>Job</th>
+          <th>Status</th>
+          <th>Model</th>
+          <th>Resolution</th>
+          <th>Time</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td>
+            <a class="row-thumb" href="{% url 'enhancer:result' job.pk %}">
+              {% if job.enhanced_image %}
+                <img src="{{ job.enhanced_image.url }}" alt="" loading="lazy">
+              {% elif job.original_image %}
+                <img src="{{ job.original_image.url }}" alt="" loading="lazy">
+              {% endif %}
+            </a>
+          </td>
+          <td>
+            <a class="row-title" href="{% url 'enhancer:result' job.pk %}">
+              {{ job.title|default:job.filename|truncatechars:40 }}
+            </a>
+            <div class="row-sub">{{ job.created_at|date:"M d, Y H:i" }}</div>
+          </td>
+          <td><span class="badge badge-{{ job.status }}">{{ job.get_status_display }}</span></td>
+          <td class="row-sub">{{ job.get_model_name_display|truncatechars:24 }}</td>
+          <td class="row-sub">{{ job.resolution_label }}</td>
+          <td class="row-sub">
+            {% if job.processing_seconds %}{{ job.processing_seconds }}s{% else %}—{% endif %}
+          </td>
+          <td class="row-actions">
+            {% if job.enhanced_image %}
+              <a class="btn-ghost btn-sm" href="{% url 'enhancer:download' job.pk %}">Download</a>
+            {% endif %}
+            <form method="post" action="{% url 'enhancer:delete' job.pk %}" class="inline"
+                  onsubmit="return confirm('Delete this job and its files?');">
+              {% csrf_token %}
+              <button class="btn-ghost btn-sm btn-danger" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <p>No jobs match. <a class="linkish" href="{% url 'enhancer:home' %}">Enhance a photo</a> to get started.</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

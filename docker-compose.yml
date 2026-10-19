@@ -1,0 +1,20 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: "False"
+      SECRET_KEY: "${SECRET_KEY:-please-change-me}"
+      ALLOWED_HOSTS: "${ALLOWED_HOSTS:-localhost,127.0.0.1}"
+      SECURE_SSL_REDIRECT: "False"
+      REALESRGAN_GPU_ID: "-1"
+      REALESRGAN_MAX_WORKERS: "1"
+    volumes:
+      - media_data:/app/media
+      - db_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  media_data:
+  db_data:
