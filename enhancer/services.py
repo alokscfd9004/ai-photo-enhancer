@@ -397,6 +397,14 @@ class RealESRGANService:
             )
             engine_used = "cpu-fallback"
             result = cpu_enhance(prepared, desired)
+        elif self._exceeds_pixel_budget(desired):
+            logger.warning(
+                "Output %sx%s exceeds REALESRGAN_MAX_PIXELS; using CPU fallback",
+                desired[0],
+                desired[1],
+            )
+            engine_used = "cpu-fallback"
+            result = cpu_enhance(prepared, desired)
         else:
             # Upscale: Real-ESRGAN (cascaded for very large factors), then a
             # Lanczos fit to the exact tier size.
@@ -516,6 +524,11 @@ class RealESRGANService:
         if model in MULTI_SCALE_MODELS:
             return min(4, max(2, math.ceil(remaining - 1e-9)))
         return 4
+
+    @staticmethod
+    def _exceeds_pixel_budget(desired) -> bool:
+        budget = int(getattr(settings, "REALESRGAN_MAX_PIXELS", 0) or 0)
+        return budget > 0 and int(desired[0]) * int(desired[1]) > budget
 
     # -- helpers ----------------------------------------------------------
     @staticmethod

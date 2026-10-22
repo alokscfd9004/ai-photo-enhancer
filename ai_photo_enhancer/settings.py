@@ -131,6 +131,9 @@ REALESRGAN_GPU_ID = env.int("REALESRGAN_GPU_ID", default=-1)  # -1 = auto
 REALESRGAN_MAX_WORKERS = env.int("REALESRGAN_MAX_WORKERS", default=1)
 REALESRGAN_TIMEOUT_SECONDS = env.int("REALESRGAN_TIMEOUT_SECONDS", default=600)
 REALESRGAN_DEFAULT_TILE = env.int("REALESRGAN_DEFAULT_TILE", default=0)  # 0 = auto
+# Refuse the engine above this many output pixels and use the CPU fallback
+# instead, so a small instance is not OOM-killed. 0 = no limit.
+REALESRGAN_MAX_PIXELS = env.int("REALESRGAN_MAX_PIXELS", default=0)
 
 # ---------------------------------------------------------------------------
 # Logging

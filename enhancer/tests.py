@@ -340,6 +340,32 @@ class CpuFallbackTests(SimpleTestCase):
         self.assertIn("mode", info)
         self.assertIn(info["mode"], ("realesrgan", "cpu-fallback"))
 
+    def test_pixel_budget_skips_engine(self):
+        from enhancer.services import RealESRGANService
+
+        self.assertFalse(RealESRGANService._exceeds_pixel_budget((1920, 1080)))
+        with self.settings(REALESRGAN_MAX_PIXELS=1000):
+            self.assertTrue(RealESRGANService._exceeds_pixel_budget((1920, 1080)))
+            self.assertFalse(RealESRGANService._exceeds_pixel_budget((30, 30)))
+
+    def test_large_output_falls_back_instead_of_engine(self):
+        import tempfile
+
+        from PIL import Image
+
+        from enhancer.services import RealESRGANService
+
+        with tempfile.TemporaryDirectory() as td, self.settings(
+            REALESRGAN_MAX_PIXELS=1000
+        ):
+            td = Path(td)
+            src = td / "in.png"
+            Image.new("RGB", (40, 30), (30, 90, 200)).save(src)
+            svc = RealESRGANService(binary_path=td / "missing-binary")
+            res = svc.upscale(src, td / "out.jpg", target="hd")
+            self.assertEqual(res.engine, "cpu-fallback")
+            self.assertEqual((res.width, res.height), (1440, 1080))
+
 
 class ServeMediaTests(TestCase):
     """/media/* must resolve, or before/after images render as broken."""
