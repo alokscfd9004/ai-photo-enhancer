@@ -51,11 +51,6 @@ def process_job(job_id) -> None:
     try:
         job.mark_started()
 
-        if not service.is_available():
-            raise EnhancementError(
-                "Real-ESRGAN engine is not installed. "
-                "Run `python scripts/setup_realesrgan.py` then retry."
-            )
         if not input_path.is_file():
             raise EnhancementError(f"Uploaded file is missing: {input_path}")
 

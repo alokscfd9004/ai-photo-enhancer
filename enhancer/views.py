@@ -65,17 +65,8 @@ def _serialize_job(job: EnhancementJob) -> dict:
 @require_http_methods(["GET", "POST"])
 def home(request):
     form = EnhancementUploadForm()
-    engine = RealESRGANService()
 
     if request.method == "POST":
-        if not engine.is_available():
-            messages.error(
-                request,
-                "The Real-ESRGAN engine is not installed on the server. "
-                "Ask the administrator to run scripts/setup_realesrgan.py.",
-            )
-            return render(request, "enhancer/home.html", {"form": form, "recent_jobs": _recent()})
-
         form = EnhancementUploadForm(request.POST, request.FILES)
         if form.is_valid():
             job = form.save()
@@ -180,12 +171,6 @@ def api_upload(request):
     form = EnhancementUploadForm(request.POST, request.FILES)
     if not form.is_valid():
         return JsonResponse({"ok": False, "errors": form.errors}, status=400)
-    engine = RealESRGANService()
-    if not engine.is_available():
-        return JsonResponse(
-            {"ok": False, "errors": {"engine": ["Real-ESRGAN engine not installed."]}},
-            status=503,
-        )
     job = form.save()
     submit_job(job.pk)
     return JsonResponse({"ok": True, "job": _serialize_job(job)}, status=202)
@@ -207,11 +192,12 @@ def api_jobs(request):
 def health(request):
     engine = RealESRGANService()
     payload = {
-        "status": "ok" if engine.is_available() else "degraded",
+        # The app always serves; the engine just degrades to a CPU fallback.
+        "status": "ok",
         "engine": engine.info(),
         "time": timezone.now().isoformat(),
     }
-    return JsonResponse(payload, status=200 if engine.is_available() else 503)
+    return JsonResponse(payload, status=200)
 
 
 # ---------------------------------------------------------------------------

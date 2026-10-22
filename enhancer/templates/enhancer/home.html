@@ -23,8 +23,9 @@
   <div class="hero-card">
     {% if not engine_available %}
       <div class="notice notice-warn">
-        <strong>Engine not installed.</strong>
-        Run <code>python scripts/setup_realesrgan.py</code> on the server to download Real-ESRGAN.
+        <strong>AI engine offline — CPU fallback active.</strong>
+        Photos still enhance (progressive Lanczos + sharpening) but will look softer than Real-ESRGAN.
+        On a host with Vulkan, run <code>python scripts/setup_realesrgan.py</code> to enable the AI engine.
       </div>
     {% endif %}
 
@@ -116,11 +117,11 @@
         </label>
       </div>
 
-      <button type="submit" class="btn-primary btn-block" id="submit-btn" {% if not engine_available %}disabled{% endif %}>
+      <button type="submit" class="btn-primary btn-block" id="submit-btn">
         <span class="btn-label">Enhance photo</span>
         <span class="btn-busy hidden">Working…</span>
       </button>
-      <p class="form-foot">Processed locally with Real-ESRGAN · nothing is uploaded to third parties</p>
+      <p class="form-foot">{% if engine_available %}Processed locally with Real-ESRGAN{% else %}Processed locally on CPU{% endif %} · nothing is uploaded to third parties</p>
     </form>
   </div>
 </section>

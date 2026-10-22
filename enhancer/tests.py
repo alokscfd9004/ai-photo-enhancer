@@ -1,4 +1,5 @@
 import inspect
+from pathlib import Path
 
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -277,3 +278,64 @@ class StaticStorageTests(SimpleTestCase):
     def test_missing_asset_does_not_raise(self):
         url = self._storage().url("enhancer/does-not-exist.css")
         self.assertEqual(url, settings.STATIC_URL + "enhancer/does-not-exist.css")
+
+
+class CpuFallbackTests(SimpleTestCase):
+    """The app must keep working when the Vulkan engine is unavailable."""
+
+    def test_cpu_enhance_hits_target_size(self):
+        from PIL import Image
+
+        from enhancer.services import cpu_enhance
+
+        src = Image.new("RGB", (40, 30), (120, 80, 200))
+        self.assertEqual(cpu_enhance(src, (1440, 1080)).size, (1440, 1080))
+
+    def test_cpu_enhance_downsizes(self):
+        from PIL import Image
+
+        from enhancer.services import cpu_enhance
+
+        src = Image.new("RGB", (800, 600), (10, 20, 30))
+        self.assertEqual(cpu_enhance(src, (200, 150)).size, (200, 150))
+
+    def test_cpu_enhance_is_sharper_than_plain_lanczos(self):
+        from PIL import Image
+
+        from enhancer.services import cpu_enhance, resize_to_size, sharpness_score
+
+        src = Image.new("RGB", (40, 30), (0, 0, 0))
+        for x in range(40):
+            for y in range(30):
+                if (x // 4 + y // 4) % 2:
+                    src.putpixel((x, y), (255, 255, 255))
+        target = (240, 180)
+        self.assertGreater(
+            sharpness_score(cpu_enhance(src, target)),
+            sharpness_score(resize_to_size(src, target)),
+        )
+
+    def test_upscale_falls_back_when_engine_missing(self):
+        import tempfile
+
+        from PIL import Image
+
+        from enhancer.services import RealESRGANService
+
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            src = td / "in.png"
+            Image.new("RGB", (40, 30), (200, 30, 30)).save(src)
+            svc = RealESRGANService(binary_path=td / "missing-binary")
+            self.assertFalse(svc.is_available())
+            res = svc.upscale(src, td / "out.jpg", target="hd")
+            self.assertEqual(res.engine, "cpu-fallback")
+            self.assertEqual((res.width, res.height), (1440, 1080))
+            self.assertTrue(res.output_path.is_file())
+
+    def test_info_reports_mode(self):
+        from enhancer.services import RealESRGANService
+
+        info = RealESRGANService().info()
+        self.assertIn("mode", info)
+        self.assertIn(info["mode"], ("realesrgan", "cpu-fallback"))

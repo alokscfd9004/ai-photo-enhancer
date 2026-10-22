@@ -59,9 +59,9 @@
       </button>
 
       <div class="engine-pill {% if engine_available %}is-on{% else %}is-off{% endif %}"
-           title="Real-ESRGAN NCNN Vulkan engine">
+           title="{% if engine_available %}Real-ESRGAN NCNN Vulkan engine{% else %}CPU fallback — Real-ESRGAN unavailable on this host{% endif %}">
         <span class="dot"></span>
-        {% if engine_available %}Engine ready{% else %}Engine offline{% endif %}
+        {% if engine_available %}Engine ready{% else %}CPU fallback{% endif %}
       </div>
     </div>
   </header>

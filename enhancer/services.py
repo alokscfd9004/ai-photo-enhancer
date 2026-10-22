@@ -67,6 +67,7 @@ class EnhancementResult:
     height: int
     elapsed_seconds: float
     stdout: str = ""
+    engine: str = "realesrgan"
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +230,45 @@ def resize_to_size(img, size):
     return img if tuple(img.size) == size else img.resize(size, Image.LANCZOS)
 
 
+def cpu_enhance(img, desired, steps: int | None = None):
+    """CPU-only upscaler used when the Vulkan engine is unavailable.
+
+    Progressive Lanczos (about 2x per pass) with an unsharp recovery pass in
+    between, then a large-radius clarity boost. Not Real-ESRGAN quality, but
+    visibly better than a single Lanczos stretch of the same factor.
+    """
+    from PIL import Image, ImageFilter
+
+    desired = (int(desired[0]), int(desired[1]))
+    current = img.convert("RGB") if img.mode != "RGB" else img
+    if tuple(current.size) == desired:
+        return current
+
+    remaining = max(
+        desired[0] / max(1, current.size[0]),
+        desired[1] / max(1, current.size[1]),
+    )
+    passes = steps or max(1, min(6, int(math.ceil(math.log(remaining, 2)))))
+    for _ in range(passes):
+        if current.size[0] >= desired[0] and current.size[1] >= desired[1]:
+            break
+        step = min(2.0, desired[0] / max(1, current.size[0]))
+        w = max(1, round(current.size[0] * step))
+        h = max(1, round(current.size[1] * step))
+        current = current.resize((w, h), Image.LANCZOS)
+        current = current.filter(
+            ImageFilter.UnsharpMask(radius=1.2, percent=85, threshold=2)
+        )
+
+    result = resize_to_size(current, desired)
+    # Clarity: large-radius unsharp restores local contrast lost to the stretch.
+    return result.filter(
+        ImageFilter.UnsharpMask(
+            radius=max(2, min(result.size) // 60), percent=55, threshold=2
+        )
+    )
+
+
 def encode_image(img, path: Path, fmt: str) -> None:
     """Write the final image with sensible per-format quality settings."""
     fmt = (fmt or "jpg").lower()
@@ -290,6 +330,7 @@ class RealESRGANService:
     def info(self) -> dict:
         return {
             "available": self.is_available(),
+            "mode": "realesrgan" if self.is_available() else "cpu-fallback",
             "binary": str(self.binary_path),
             "binary_exists": self.binary_path.is_file(),
             "models_dir": str(self.models_dir),
@@ -325,11 +366,6 @@ class RealESRGANService:
         input_path = Path(input_path)
         output_path = Path(output_path)
 
-        if not self.is_available():
-            raise EnhancementError(
-                "Real-ESRGAN engine is not installed. "
-                "Run: python scripts/setup_realesrgan.py"
-            )
         if not input_path.is_file():
             raise EnhancementError(f"Input file not found: {input_path}")
 
@@ -350,10 +386,21 @@ class RealESRGANService:
         stdout_tail = ""
         if factor <= 1.02:
             # Downscale (or already the right size): Lanczos only, no engine.
+            engine_used = "lanczos"
             result = resize_to_size(prepared, desired)
+        elif not self.is_available():
+            # No Vulkan runtime (e.g. serverless): fall back so the job still
+            # completes instead of erroring out.
+            logger.warning(
+                "Real-ESRGAN engine unavailable (%s); using CPU fallback",
+                self.binary_path,
+            )
+            engine_used = "cpu-fallback"
+            result = cpu_enhance(prepared, desired)
         else:
             # Upscale: Real-ESRGAN (cascaded for very large factors), then a
             # Lanczos fit to the exact tier size.
+            engine_used = "realesrgan"
             current = prepared
             for _ in range(2):
                 remaining = desired[0] / current.size[0]
@@ -390,6 +437,7 @@ class RealESRGANService:
             height=height,
             elapsed_seconds=elapsed,
             stdout=(stdout_tail or "")[-2000:],
+            engine=engine_used,
         )
 
     def _run_engine(
