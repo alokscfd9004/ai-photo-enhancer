@@ -339,3 +339,31 @@ class CpuFallbackTests(SimpleTestCase):
         info = RealESRGANService().info()
         self.assertIn("mode", info)
         self.assertIn(info["mode"], ("realesrgan", "cpu-fallback"))
+
+
+class ServeMediaTests(TestCase):
+    """/media/* must resolve, or before/after images render as broken."""
+
+    def test_media_is_served_by_default(self):
+        self.assertTrue(settings.SERVE_MEDIA)
+
+    def test_serves_uploaded_file(self):
+        from django.core.files.base import ContentFile
+
+        job = EnhancementJob.objects.create(
+            title="media serve",
+            model_name="realesrgan-x4plus",
+            target="hd",
+            output_format="jpg",
+        )
+        job.enhanced_image.save("probe.jpg", ContentFile(b"\xff\xd8\xff\xe0fakejpeg"), save=True)
+        resp = self.client.get(settings.MEDIA_URL + job.enhanced_image.name)
+        self.assertEqual(resp.status_code, 200)
+
+    def test_missing_file_404s(self):
+        resp = self.client.get("/media/enhanced/nope/missing.jpg")
+        self.assertEqual(resp.status_code, 404)
+
+    def test_path_traversal_is_rejected(self):
+        resp = self.client.get("/media/../../etc/passwd")
+        self.assertIn(resp.status_code, (404, 400))

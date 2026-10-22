@@ -198,7 +198,10 @@ if os.environ.get("VERCEL"):
     SERVE_MEDIA = True
     WHITENOISE_MANIFEST_STRICT = False
 else:
-    SERVE_MEDIA = env.bool("SERVE_MEDIA", default=False)
+    # Media lives on the local filesystem (FileSystemStorage) with no CDN in
+    # front of it, so the app has to serve it. Set SERVE_MEDIA=False if you put
+    # a bucket/CDN in front of MEDIA_ROOT.
+    SERVE_MEDIA = env.bool("SERVE_MEDIA", default=True)
 
 # Recompute now that DEBUG may have been flipped above.
 STORAGES["staticfiles"]["BACKEND"] = (
