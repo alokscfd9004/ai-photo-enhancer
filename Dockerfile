@@ -25,12 +25,12 @@ COPY . .
 # Download the Linux engine + models at build time
 RUN python scripts/setup_realesrgan.py
 
-RUN python manage.py collectstatic --noinput \
-    && python manage.py migrate --noinput
+RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8000/health/ || exit 1
 
-CMD ["gunicorn", "ai_photo_enhancer.wsgi:application", "--config", "gunicorn.conf.py"]
+# Migrate at start (not build) so a fresh instance always has the schema.
+CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn ai_photo_enhancer.wsgi:application --config gunicorn.conf.py"]

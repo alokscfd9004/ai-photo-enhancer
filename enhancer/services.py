@@ -401,21 +401,28 @@ class RealESRGANService:
             # Upscale: Real-ESRGAN (cascaded for very large factors), then a
             # Lanczos fit to the exact tier size.
             engine_used = "realesrgan"
-            current = prepared
-            for _ in range(2):
-                remaining = desired[0] / current.size[0]
-                if remaining <= 1.05:
-                    break
-                engine_scale = self._engine_scale_for(model, remaining)
-                current, stdout_tail = self._run_engine(
-                    current,
-                    model,
-                    engine_scale,
-                    output_path.parent,
-                    output_path.stem,
-                    tile,
-                )
-            result = resize_to_size(current, desired)
+            try:
+                current = prepared
+                for _ in range(2):
+                    remaining = desired[0] / current.size[0]
+                    if remaining <= 1.05:
+                        break
+                    engine_scale = self._engine_scale_for(model, remaining)
+                    current, stdout_tail = self._run_engine(
+                        current,
+                        model,
+                        engine_scale,
+                        output_path.parent,
+                        output_path.stem,
+                        tile,
+                    )
+                result = resize_to_size(current, desired)
+            except EnhancementError as exc:
+                # Out of memory, driver error, timeout… fall back rather than
+                # fail the job outright.
+                logger.warning("Real-ESRGAN failed (%s); using CPU fallback", exc)
+                engine_used = "cpu-fallback"
+                result = cpu_enhance(prepared, desired)
         elapsed = time.perf_counter() - started
 
         # 6–8. sharpen, texture, alpha, encode
